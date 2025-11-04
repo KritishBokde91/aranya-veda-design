@@ -2,13 +2,16 @@ import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Leaf, Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 const Header = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
-  const isAuthenticated = localStorage.getItem("isAuthenticated") === "true";
+  const { toast } = useToast();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -18,16 +21,59 @@ const Header = () => {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  const handleLogout = () => {
-    localStorage.removeItem("isAuthenticated");
-    navigate("/");
+  // Check authentication status and listen for changes
+  useEffect(() => {
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      setIsAuthenticated(!!session);
+    };
+
+    checkSession();
+
+    // Listen for auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      setIsAuthenticated(!!session);
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  const handleLogout = async () => {
+    try {
+      const { error } = await supabase.auth.signOut();
+      
+      if (error) {
+        console.error("Logout error:", error);
+        toast({
+          title: "Logout Error",
+          description: "Failed to logout. Please try again.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      toast({
+        title: "Logged out",
+        description: "You have been successfully logged out.",
+      });
+      navigate("/");
+    } catch (error) {
+      console.error("Unexpected logout error:", error);
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred during logout.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
     <header
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
         isScrolled
-          ? "bg-white/95 backdrop-blur-xl shadow-lg"
+          ? "bg-black/95 backdrop-blur-xl shadow-lg"
           : "bg-transparent backdrop-blur-sm"
       }`}
     >
@@ -51,7 +97,7 @@ const Header = () => {
               className={`text-xl sm:text-2xl font-bold transition-all ${
                 isScrolled
                   ? "bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent"
-                  : "text-white"
+                  : "text-black"
               }`}
             >
               VrukshaVeda
@@ -93,19 +139,7 @@ const Header = () => {
                   <span className="px-2">Logout</span>
                 </Button>
               </>
-            ) : (
-              <Link to="/login">
-                <Button
-                  className={`rounded-full px-4 py-2.5 transition-all ${
-                    isScrolled
-                      ? "bg-gradient-to-r from-primary to-secondary text-white"
-                      : "bg-white/90 text-primary hover:bg-white backdrop-blur-sm"
-                  }`}
-                >
-                  <span className="px-2">Admin Login</span>
-                </Button>
-              </Link>
-            )}
+            ) : null}
           </nav>
 
           {/* Mobile Menu Button */}
@@ -126,44 +160,34 @@ const Header = () => {
         </div>
 
         {/* Mobile Menu */}
-        {isMobileMenuOpen && (
+        {isMobileMenuOpen && isAuthenticated && (
           <div className="md:hidden py-4 bg-white/95 backdrop-blur-xl rounded-2xl shadow-xl mt-2 mb-4 animate-fade-in">
             <nav className="flex flex-col gap-2 px-4">
-              {isAuthenticated ? (
-                <>
-                  <Link to="/" onClick={() => setIsMobileMenuOpen(false)}>
-                    <Button
-                      variant="ghost"
-                      className="w-full justify-start rounded-xl hover:bg-emerald-50"
-                    >
-                      Home
-                    </Button>
-                  </Link>
-                  <Link to="/admin" onClick={() => setIsMobileMenuOpen(false)}>
-                    <Button
-                      variant="ghost"
-                      className="w-full justify-start rounded-xl hover:bg-emerald-50"
-                    >
-                      Admin
-                    </Button>
-                  </Link>
-                  <Button
-                    onClick={() => {
-                      handleLogout();
-                      setIsMobileMenuOpen(false);
-                    }}
-                    className="w-full bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl"
-                  >
-                    Logout
-                  </Button>
-                </>
-              ) : (
-                <Link to="/login" onClick={() => setIsMobileMenuOpen(false)}>
-                  <Button className="w-full bg-gradient-to-r from-primary to-secondary text-white rounded-xl">
-                    Admin Login
-                  </Button>
-                </Link>
-              )}
+              <Link to="/" onClick={() => setIsMobileMenuOpen(false)}>
+                <Button
+                  variant="ghost"
+                  className="w-full justify-start rounded-xl hover:bg-emerald-50"
+                >
+                  Home
+                </Button>
+              </Link>
+              <Link to="/admin" onClick={() => setIsMobileMenuOpen(false)}>
+                <Button
+                  variant="ghost"
+                  className="w-full justify-start rounded-xl hover:bg-emerald-50"
+                >
+                  Admin
+                </Button>
+              </Link>
+              <Button
+                onClick={() => {
+                  handleLogout();
+                  setIsMobileMenuOpen(false);
+                }}
+                className="w-full bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl"
+              >
+                Logout
+              </Button>
             </nav>
           </div>
         )}

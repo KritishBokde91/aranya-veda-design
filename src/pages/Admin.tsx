@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { 
   TreeDeciduous, 
@@ -71,35 +71,99 @@ const Admin = () => {
     source_document: "",
   });
 
-  useEffect(() => {
-    const isAuthenticated = localStorage.getItem("isAuthenticated") === "true";
-    if (!isAuthenticated) {
-      navigate("/login");
-    } else {
-      loadPlants();
-    }
-  }, [navigate]);
-
-  const loadPlants = async () => {
+  const loadPlants = useCallback(async () => {
     try {
+      // Verify session before loading plants
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        navigate("/login");
+        return;
+      }
+
       const { data, error } = await supabase
         .from("plants")
         .select("*")
         .order("created_at", { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        // Handle specific Supabase errors
+        if (error.code === "PGRST116" || error.message.includes("JWT")) {
+          // Session expired or invalid
+          toast({
+            title: "Session Expired",
+            description: "Your session has expired. Please login again.",
+            variant: "destructive",
+          });
+          await supabase.auth.signOut();
+          navigate("/login");
+          return;
+        }
+        throw error;
+      }
+      
       setPlants(data || []);
     } catch (error) {
       console.error("Error loading plants:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to load plants";
       toast({
         title: "Error",
-        description: "Failed to load plants",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
       setLoading(false);
     }
-  };
+  }, [navigate, toast]);
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error("Session check error:", error);
+          toast({
+            title: "Authentication Error",
+            description: "Failed to verify session. Please login again.",
+            variant: "destructive",
+          });
+          navigate("/login");
+          return;
+        }
+
+        if (!session) {
+          navigate("/login");
+          return;
+        }
+
+        // User is authenticated, load plants
+        loadPlants();
+      } catch (error) {
+        console.error("Unexpected error during auth check:", error);
+        toast({
+          title: "Error",
+          description: "An unexpected error occurred. Please try again.",
+          variant: "destructive",
+        });
+        navigate("/login");
+      }
+    };
+
+    checkAuth();
+
+    // Listen for auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_OUT" || !session) {
+        navigate("/login");
+      } else if (event === "SIGNED_IN" && session) {
+        loadPlants();
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [navigate, toast, loadPlants]);
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
@@ -489,7 +553,7 @@ const Admin = () => {
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
                       <button
-                        onClick={() => window.open(`/plants/${plant.id}`, "_blank")}
+                        onClick={() => navigate(`/plants/${plant.id}`)}
                         className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-lg transition-all"
                       >
                         <Eye className="w-4 h-4" />
@@ -535,7 +599,7 @@ const Admin = () => {
               <div className="bg-white border border-gray-200 rounded-xl p-4">
                 <QRCodeCanvas
                   ref={qrRef}
-                  value={`${window.location.origin}/plants/${selectedPlant.id}`}
+                  value={`${import.meta.env.VITE_BASE_URL || window.location.origin}/plants/${selectedPlant.id}`}
                   size={220}
                   level="H"
                   includeMargin

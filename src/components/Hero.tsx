@@ -99,9 +99,9 @@ const Hero = () => {
 
           {/* Main Heading */}
           <h1 className="text-5xl sm:text-6xl lg:text-8xl font-bold mb-6 animate-fade-in-up">
-            <span className="text-white block mb-2">Know Your Roots</span>
+            <span className="text-white block mb-2">Preserve Your Roots</span>
             <span className="bg-gradient-to-r from-emerald-300 via-teal-300 to-green-300 bg-clip-text text-transparent animate-fade-in-up animation-delay-200">
-              Preserve Ayurveda
+              Know Ayurveda
             </span>
           </h1>
 

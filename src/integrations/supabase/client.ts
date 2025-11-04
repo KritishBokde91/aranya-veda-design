@@ -5,6 +5,63 @@ import type { Database } from './types';
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
+// Validate environment variables
+if (!SUPABASE_URL || SUPABASE_URL === 'undefined') {
+  const errorMsg = `
+❌ Missing Supabase URL!
+
+Please create a .env file in the root directory with:
+VITE_SUPABASE_URL=your_supabase_project_url
+VITE_SUPABASE_PUBLISHABLE_KEY=your_supabase_anon_key
+
+Get these values from: https://supabase.com/dashboard/project/_/settings/api
+
+After adding the .env file, restart your dev server (npm run dev).
+  `.trim();
+  console.error(errorMsg);
+  throw new Error('Missing env.VITE_SUPABASE_URL');
+}
+
+if (!SUPABASE_PUBLISHABLE_KEY || SUPABASE_PUBLISHABLE_KEY === 'undefined') {
+  const errorMsg = `
+❌ Missing Supabase Publishable Key!
+
+Please create a .env file in the root directory with:
+VITE_SUPABASE_URL=your_supabase_project_url
+VITE_SUPABASE_PUBLISHABLE_KEY=your_supabase_anon_key
+
+Get these values from: https://supabase.com/dashboard/project/_/settings/api
+
+After adding the .env file, restart your dev server (npm run dev).
+  `.trim();
+  console.error(errorMsg);
+  throw new Error('Missing env.VITE_SUPABASE_PUBLISHABLE_KEY');
+}
+
+// Debug: Log in development (without exposing actual values)
+if (import.meta.env.DEV) {
+  console.log('✅ Supabase client initialized:', {
+    url: SUPABASE_URL ? `${SUPABASE_URL.substring(0, 30)}...` : 'undefined',
+    key: SUPABASE_PUBLISHABLE_KEY ? `${SUPABASE_PUBLISHABLE_KEY.substring(0, 30)}...` : 'undefined',
+    urlLength: SUPABASE_URL?.length || 0,
+    keyLength: SUPABASE_PUBLISHABLE_KEY?.length || 0,
+    rawEnvUrl: import.meta.env.VITE_SUPABASE_URL ? 'exists' : 'missing',
+    rawEnvKey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ? 'exists' : 'missing',
+  });
+  
+  // Warn if values are undefined
+  if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
+    console.error('❌ CRITICAL: Supabase environment variables are missing!');
+    console.error('Please check your .env file and restart the dev server.');
+  }
+  
+  // Validate key format (should be a JWT token)
+  if (SUPABASE_PUBLISHABLE_KEY && !SUPABASE_PUBLISHABLE_KEY.startsWith('eyJ')) {
+    console.warn('⚠️ WARNING: The API key might be in wrong format. It should start with "eyJ" (JWT token).');
+    console.warn('Make sure you copied the "anon public" key from Supabase dashboard, not the "service_role" key.');
+  }
+}
+
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
