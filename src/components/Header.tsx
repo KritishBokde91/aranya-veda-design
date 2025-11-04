@@ -97,7 +97,7 @@ const Header = () => {
               className={`text-xl sm:text-2xl font-bold transition-all ${
                 isScrolled
                   ? "bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent"
-                  : "text-white"
+                  : "text-black"
               }`}
             >
               VrukshaVeda
@@ -113,8 +113,8 @@ const Header = () => {
                     variant="ghost"
                     className={`rounded-full px-4 py-2.5 transition-all ${
                       isScrolled
-                        ? "bg-emerald-50 text-primary hover:bg-emerald-100"
-                        : "bg-white/90 text-primary hover:bg-white backdrop-blur-sm"
+                        ? "bg-black text-primary hover:bg-emerald-100"
+                        : "bg-black/90 text-primary hover:bg-black backdrop-blur-sm"
                     } ${location.pathname === "/" ? "ring-2 ring-primary/30" : ""}`}
                   >
                     <span className="px-2">Home</span>
@@ -125,8 +125,8 @@ const Header = () => {
                     variant="ghost"
                     className={`rounded-full px-4 py-2.5 transition-all ${
                       isScrolled
-                        ? "bg-emerald-50 text-primary hover:bg-emerald-100"
-                        : "bg-white/90 text-primary hover:bg-white backdrop-blur-sm"
+                        ? "bg-black text-primary hover:bg-emerald-100"
+                        : "bg-black/90 text-primary hover:bg-black backdrop-blur-sm"
                     } ${location.pathname === "/plants" ? "ring-2 ring-primary/30" : ""}`}
                   >
                     <span className="px-2">Explore Plants</span>
@@ -137,8 +137,8 @@ const Header = () => {
                     variant="ghost"
                     className={`rounded-full px-4 py-2.5 transition-all ${
                       isScrolled
-                        ? "bg-emerald-50 text-primary hover:bg-emerald-100"
-                        : "bg-white/90 text-primary hover:bg-white backdrop-blur-sm"
+                        ? "bg-black text-primary hover:bg-emerald-100"
+                        : "bg-black/90 text-primary hover:bg-black backdrop-blur-sm"
                     } ${location.pathname === "/admin" ? "ring-2 ring-primary/30" : ""}`}
                   >
                     <span className="px-2">Admin</span>

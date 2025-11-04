@@ -3,8 +3,12 @@ import { Link } from "react-router-dom";
 
 const Footer = () => {
   return (
-    <footer className="bg-gradient-to-br from-emerald-900 via-teal-900 to-green-900 text-white mt-auto">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+    <footer className="relative mt-auto">
+      {/* Dark overlay for better text contrast */}
+      <div className="absolute inset-0 bg-gradient-to-br from-emerald-900/95 via-teal-900/95 to-green-900/95 backdrop-blur-sm"></div>
+      
+      {/* Content with fully opaque text */}
+      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 text-white">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
           {/* Brand Section */}
           <div className="space-y-4">
@@ -54,7 +58,7 @@ const Footer = () => {
         </div>
 
         {/* Divider */}
-        <div className="border-t border-emerald-800/50 pt-8">
+        <div className="border-t border-white/20 pt-8">
           {/* Credits */}
           <div className="text-center space-y-3">
             <p className="text-white text-base leading-relaxed">
@@ -70,7 +74,7 @@ const Footer = () => {
         </div>
 
         {/* Copyright */}
-        <div className="mt-8 pt-6 border-t border-emerald-800/50 text-center">
+        <div className="mt-8 pt-6 border-t border-white/20 text-center">
           <p className="text-white text-xs">
             © {new Date().getFullYear()} VrukshaVeda. All rights reserved.
           </p>
