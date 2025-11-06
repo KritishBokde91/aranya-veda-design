@@ -11,7 +11,9 @@ import {
   X, 
   CheckCircle, 
   AlertCircle, 
-  Loader2 
+  Loader2,
+  Pencil,
+  Trash2
 } from "lucide-react";
 import { QRCodeCanvas } from "qrcode.react";
 import Header from "@/components/Header";
@@ -57,7 +59,11 @@ const Admin = () => {
   const [selectedPlant, setSelectedPlant] = useState<Plant | null>(null);
   const [showQRModal, setShowQRModal] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editingPlantId, setEditingPlantId] = useState<string | null>(null);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [existingImages, setExistingImages] = useState<string[]>([]);
+  const [imagesToDelete, setImagesToDelete] = useState<string[]>([]);
   const qrRef = useRef<HTMLCanvasElement>(null);
 
   const [formData, setFormData] = useState<FormData>({
@@ -178,6 +184,53 @@ const Admin = () => {
     }
   };
 
+  const handleEdit = (plant: Plant) => {
+    setEditingPlantId(plant.id);
+    setIsEditMode(true);
+    setShowAddForm(true);
+    setSelectedPlant(plant);
+    setExistingImages(plant.images || []);
+    setImagesToDelete([]);
+    setSelectedFiles([]);
+    setFormData({
+      name: plant.name || "",
+      botanical_name: plant.botanical_name || "",
+      family: plant.family || "",
+      synonyms: plant.synonyms?.join(", ") || "",
+      english_name: plant.english_name || "",
+      useful_parts: plant.useful_parts?.join(", ") || "",
+      indications: plant.indications?.join(", ") || "",
+      shloka: plant.shloka || "",
+      source_document: plant.source_document || "",
+    });
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditMode(false);
+    setEditingPlantId(null);
+    setShowAddForm(false);
+    setSelectedPlant(null);
+    setExistingImages([]);
+    setImagesToDelete([]);
+    setSelectedFiles([]);
+    setFormData({
+      name: "",
+      botanical_name: "",
+      family: "",
+      synonyms: "",
+      english_name: "",
+      useful_parts: "",
+      indications: "",
+      shloka: "",
+      source_document: "",
+    });
+  };
+
+  const handleRemoveExistingImage = (imageUrl: string) => {
+    setExistingImages(existingImages.filter(img => img !== imageUrl));
+    setImagesToDelete([...imagesToDelete, imageUrl]);
+  };
+
   const uploadImages = async (plantId: string): Promise<string[]> => {
     const imageUrls: string[] = [];
 
@@ -236,54 +289,80 @@ const Admin = () => {
           .filter((s) => s),
         shloka: formData.shloka.trim() || null,
         source_document: formData.source_document.trim() || null,
-        images: [],
       };
 
-      const { data: plant, error: insertError } = await supabase
-        .from("plants")
-        .insert([plantData])
-        .select()
-        .single();
+      if (isEditMode && editingPlantId) {
+        // Update existing plant
+        let finalImages = existingImages;
 
-      if (insertError) throw insertError;
+        // Upload new images if any
+        if (selectedFiles.length > 0) {
+          const newImageUrls = await uploadImages(editingPlantId);
+          finalImages = [...existingImages, ...newImageUrls];
+        }
 
-      if (selectedFiles.length > 0) {
-        const imageUrls = await uploadImages(plant.id);
         const { error: updateError } = await supabase
           .from("plants")
-          .update({ images: imageUrls })
-          .eq("id", plant.id);
+          .update({ ...plantData, images: finalImages })
+          .eq("id", editingPlantId);
 
         if (updateError) throw updateError;
-        plant.images = imageUrls;
+
+        toast({
+          title: "Success",
+          description: `${formData.name} updated successfully!`,
+        });
+
+        handleCancelEdit();
+        loadPlants();
+      } else {
+        // Create new plant
+        const { data: plant, error: insertError } = await supabase
+          .from("plants")
+          .insert([{ ...plantData, images: [] }])
+          .select()
+          .single();
+
+        if (insertError) throw insertError;
+
+        if (selectedFiles.length > 0) {
+          const imageUrls = await uploadImages(plant.id);
+          const { error: updateError } = await supabase
+            .from("plants")
+            .update({ images: imageUrls })
+            .eq("id", plant.id);
+
+          if (updateError) throw updateError;
+          plant.images = imageUrls;
+        }
+
+        toast({
+          title: "Success",
+          description: `${formData.name} added successfully!`,
+        });
+
+        setFormData({
+          name: "",
+          botanical_name: "",
+          family: "",
+          synonyms: "",
+          english_name: "",
+          useful_parts: "",
+          indications: "",
+          shloka: "",
+          source_document: "",
+        });
+        setSelectedFiles([]);
+        setShowAddForm(false);
+        setSelectedPlant(plant);
+        setShowQRModal(true);
+        loadPlants();
       }
-
-      toast({
-        title: "Success",
-        description: `${formData.name} added successfully!`,
-      });
-
-      setFormData({
-        name: "",
-        botanical_name: "",
-        family: "",
-        synonyms: "",
-        english_name: "",
-        useful_parts: "",
-        indications: "",
-        shloka: "",
-        source_document: "",
-      });
-      setSelectedFiles([]);
-      setShowAddForm(false);
-      setSelectedPlant(plant);
-      setShowQRModal(true);
-      loadPlants();
     } catch (error) {
-      console.error("Error adding plant:", error);
+      console.error(`Error ${isEditMode ? "updating" : "adding"} plant:`, error);
       toast({
         title: "Error",
-        description: "Failed to add plant. Please try again.",
+        description: `Failed to ${isEditMode ? "update" : "add"} plant. Please try again.`,
         variant: "destructive",
       });
     } finally {
@@ -347,17 +426,45 @@ const Admin = () => {
           {/* Add Plant Button */}
           <div className="animate-fade-in-up animation-delay-200">
             <button
-              onClick={() => setShowAddForm(!showAddForm)}
+              onClick={() => {
+                if (isEditMode) {
+                  handleCancelEdit();
+                } else {
+                  setShowAddForm(!showAddForm);
+                }
+              }}
               className="w-full group bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-2xl shadow-xl px-8 py-4 hover:shadow-2xl transition-all flex items-center justify-center gap-3 font-semibold text-lg"
             >
-              <Plus className="w-6 h-6 group-hover:rotate-90 transition-transform" />
-              <span className="px-2">Add New Medicinal Plant</span>
+              {isEditMode ? (
+                <>
+                  <X className="w-6 h-6 group-hover:rotate-90 transition-transform" />
+                  <span className="px-2">Cancel Editing</span>
+                </>
+              ) : (
+                <>
+                  <Plus className="w-6 h-6 group-hover:rotate-90 transition-transform" />
+                  <span className="px-2">Add New Medicinal Plant</span>
+                </>
+              )}
             </button>
           </div>
 
-          {/* Add Plant Form */}
+          {/* Add/Edit Plant Form */}
           {showAddForm && (
             <div className="bg-white rounded-3xl shadow-xl border border-gray-100 p-8 animate-fade-in">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-bold text-gray-900">
+                  {isEditMode ? "Edit Plant" : "Add New Plant"}
+                </h2>
+                {isEditMode && (
+                  <button
+                    onClick={handleCancelEdit}
+                    className="p-2 hover:bg-gray-100 rounded-lg transition-all"
+                  >
+                    <X className="w-6 h-6 text-gray-600" />
+                  </button>
+                )}
+              </div>
               <form onSubmit={handleSubmit} className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <InputField
@@ -440,9 +547,35 @@ const Admin = () => {
                   <label className="text-sm font-semibold text-gray-700">
                     Plant Images
                   </label>
+                  
+                  {/* Existing Images (Edit Mode) */}
+                  {isEditMode && existingImages.length > 0 && (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 mb-4">
+                      {existingImages.map((imageUrl, index) => (
+                        <div key={index} className="relative group">
+                          <img
+                            src={imageUrl}
+                            alt={`Plant ${index + 1}`}
+                            className="w-full h-32 object-cover rounded-lg border-2 border-gray-200"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveExistingImage(imageUrl)}
+                            className="absolute top-2 right-2 p-1.5 bg-red-500 hover:bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Upload New Images */}
                   <label className="flex flex-col items-center justify-center h-40 border-2 border-dashed border-gray-300 rounded-xl bg-gray-50 hover:bg-gray-100 cursor-pointer transition-all">
                     <ImageIcon className="w-10 h-10 text-emerald-600 mb-2" />
-                    <span className="text-gray-600">Click to upload images</span>
+                    <span className="text-gray-600">
+                      {isEditMode ? "Click to add more images" : "Click to upload images"}
+                    </span>
                     <span className="text-xs text-gray-500 mt-1">
                       PNG, JPG, JPEG • Max 10MB each
                     </span>
@@ -469,23 +602,44 @@ const Admin = () => {
                   )}
                 </div>
 
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="w-full bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-xl py-4 font-semibold flex items-center justify-center gap-2 hover:shadow-lg transition-all disabled:opacity-60 disabled:cursor-not-allowed"
-                >
-                  {isSubmitting ? (
-                    <>
-                      <Loader2 className="w-6 h-6 animate-spin" />
-                      <span className="px-2">Adding Plant...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Plus className="w-6 h-6" />
-                      <span className="px-2">Add to Repository</span>
-                    </>
+                <div className="flex gap-4">
+                  {isEditMode && (
+                    <button
+                      type="button"
+                      onClick={handleCancelEdit}
+                      className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-xl py-4 font-semibold flex items-center justify-center gap-2 transition-all"
+                    >
+                      <X className="w-6 h-6" />
+                      <span className="px-2">Cancel</span>
+                    </button>
                   )}
-                </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className={`${isEditMode ? "flex-1" : "w-full"} bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-xl py-4 font-semibold flex items-center justify-center gap-2 hover:shadow-lg transition-all disabled:opacity-60 disabled:cursor-not-allowed`}
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="w-6 h-6 animate-spin" />
+                        <span className="px-2">{isEditMode ? "Updating..." : "Adding Plant..."}</span>
+                      </>
+                    ) : (
+                      <>
+                        {isEditMode ? (
+                          <>
+                            <CheckCircle className="w-6 h-6" />
+                            <span className="px-2">Update Plant</span>
+                          </>
+                        ) : (
+                          <>
+                            <Plus className="w-6 h-6" />
+                            <span className="px-2">Add to Repository</span>
+                          </>
+                        )}
+                      </>
+                    )}
+                  </button>
+                </div>
               </form>
             </div>
           )}
@@ -556,9 +710,18 @@ const Admin = () => {
                       <button
                         onClick={() => navigate(`/plants/${plant.id}`)}
                         className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-lg transition-all"
+                        title="View Plant Details"
                       >
                         <Eye className="w-4 h-4" />
-                        <span>View</span>
+                        <span className="hidden sm:inline">View</span>
+                      </button>
+                      <button
+                        onClick={() => handleEdit(plant)}
+                        className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg transition-all"
+                        title="Edit Plant"
+                      >
+                        <Pencil className="w-4 h-4" />
+                        <span className="hidden sm:inline">Edit</span>
                       </button>
                       <button
                         onClick={() => {
@@ -566,9 +729,10 @@ const Admin = () => {
                           setShowQRModal(true);
                         }}
                         className="flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white px-3 py-2 rounded-lg transition-all"
+                        title="Generate QR Code"
                       >
                         <Download className="w-4 h-4" />
-                        <span>QR</span>
+                        <span className="hidden sm:inline">QR</span>
                       </button>
                     </div>
                   </div>
